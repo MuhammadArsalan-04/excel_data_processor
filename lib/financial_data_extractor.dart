@@ -68,6 +68,7 @@ class FinancialDataExtractor {
       'Interest expense',
     ],
       'Profit / (loss) before taxation (F7)': [
+      '8. Profit / (loss) before taxation',
       '7. Profit / (loss) before taxation',
       'Profit / (loss) before taxation',
       'F7. Profit / (loss) before taxation',
@@ -75,29 +76,27 @@ class FinancialDataExtractor {
       'F7. Profit',
       'F7',
     ],
-    'Tax Expense (F9)': [
-      '8. Tax expenses',
-      '8(i) Current',
+    'Tax Expense (F8)': [
       '9. Tax expenses',
-      'Tax expenses',
+      '9. Tax expense',
+      '8. Tax expenses',
+      '8. Tax expense',
       'F9. Tax expenses',
-      'F8. Tax expenses',
       'F9. Tax expense',
-      'Tax expense',
-      'Tax expense',
+      'F8. Tax',
+      'F8. Tax expenses',
     ],
     'Tax Expense - Current (F8(i))': [
-      '8. Tax expenses',
-      '8(i) Current',
-      'Tax expenses',
       '(i) Current',
+      '8(i) Current',
+      'i) Current',
       'Current tax',
-      'F8',
       'F8(i)',
-      'F8. Tax',
     ],
     'Profit After Tax (F10)': [
+      '10. Profit / (loss) after tax',
       '10. Profit after tax',
+      'Profit / (loss) after tax',
       'Profit after tax',
       'F10. Profit after tax',
       'F10',
@@ -223,7 +222,7 @@ class FinancialDataExtractor {
           }
         }
 
-        // 3. Calculate EBIT (F3 + F4 + F5) - ONLY if not already present
+        // 3. Calculate EBIT (F3 - F4 + F5) - ONLY if not already present
         if (!yearData.containsKey('EBIT (F6)')) {
           String? grossProfit = yearData['Gross Profit (F3)'];
           String? adminExpenses = yearData['Administrative Expenses (F4)'];
@@ -234,7 +233,7 @@ class FinancialDataExtractor {
               otherIncome != null) {
             try {
               double ebit =
-                  (double.tryParse(grossProfit) ?? 0) +
+                  (double.tryParse(grossProfit) ?? 0) -
                   (double.tryParse(adminExpenses) ?? 0) +
                   (double.tryParse(otherIncome) ?? 0);
               yearData['EBIT (F6)'] = ebit.toStringAsFixed(0);
@@ -244,45 +243,45 @@ class FinancialDataExtractor {
           }
         }
 
-        // 4. Calculate Profit After Tax
-        // CASE 1 (New Standard): Profit After Tax = F7 - F8(i)
-        //   F7 = Profit / (loss) before taxation
-        //   F8(i) = Tax Expense - Current
-        // CASE 2 (Fallback): Profit After Tax = EBIT - Financial Expenses - Tax Expense
-        if (!yearData.containsKey('Profit After Tax (F10)')) {
-          // Try CASE 1: F7 - F8(i) (using OR - whichever keys are found)
-          String? profitBeforeTax = yearData['Profit / (loss) before taxation (F7)'];
-          String? currentTaxExpense = yearData['Tax Expense - Current (F8(i))'];
+        // 4. Calculate Profit / (loss) before taxation (F6-F7) - ONLY if not already present
+        if (!yearData.containsKey('Profit / (loss) before taxation (F6-F7)')) {
+          String? ebit = yearData['EBIT (F6)'];
+          String? financialExpenses = yearData['Financial Expenses (F7)'];
 
-          if (profitBeforeTax != null && currentTaxExpense != null) {
+          if (ebit != null && financialExpenses != null) {
             try {
-              double pbtValue = double.tryParse(profitBeforeTax) ?? 0;
-              double ctValue = double.tryParse(currentTaxExpense) ?? 0;
-
-              debugPrint('Calculating Profit After Tax for $company in $yearColumn using CASE 1: PBT = $pbtValue, Current Tax = $ctValue');
-              double profitAfterTax = pbtValue - ctValue;
-              yearData['Profit After Tax (F10)'] = profitAfterTax.toStringAsFixed(0);
+              double pbtValue =
+                  (double.tryParse(ebit) ?? 0) -
+                  (double.tryParse(financialExpenses) ?? 0);
+              yearData['Profit / (loss) before taxation (F6-F7)'] = pbtValue.toStringAsFixed(0);
             } catch (e) {
-              // If calculation fails, try fallback
+              // If calculation fails, leave it empty
             }
           }
+        }
 
-          // If CASE 1 didn't work, try CASE 2: EBIT - Financial Expenses - Tax Expense
-          if (!yearData.containsKey('Profit After Tax (F10)')) {
-            String? ebit = yearData['EBIT (F6)'];
-            String? financialExpenses = yearData['Financial Expenses (F7)'];
-            String? taxExpense = yearData['Tax Expense (F9)'];
+        // 5. Calculate Profit After Tax
+        // Formula: Profit After Tax = Profit / (loss) before taxation (F7) - Tax Expense (F8)
+        // Priority: F8 primary, F8(i) fallback
+        if (!yearData.containsKey('Profit After Tax (F10)')) {
+          String? profitBeforeTaxF7 = yearData['Profit / (loss) before taxation (F7)'];
+          String? taxExpenseF8 = yearData['Tax Expense (F8)'];
 
-            if (ebit != null) {
-              try {
-                double ebitValue = double.tryParse(ebit) ?? 0;
-                double financialExpValue = double.tryParse(financialExpenses ?? '0') ?? 0;
-                double taxExpValue = double.tryParse(taxExpense ?? '0') ?? 0;
-                double profitAfterTax = ebitValue - financialExpValue - taxExpValue;
-                yearData['Profit After Tax (F10)'] = profitAfterTax.toStringAsFixed(0);
-              } catch (e) {
-                // If calculation fails, leave it empty
-              }
+          // If Tax Expense (F8) is not available, use Tax Expense - Current (F8(i)) as fallback
+          if (taxExpenseF8 == null) {
+            taxExpenseF8 = yearData['Tax Expense - Current (F8(i))'];
+          }
+
+          if (profitBeforeTaxF7 != null && taxExpenseF8 != null) {
+            try {
+              double f7Value = double.tryParse(profitBeforeTaxF7) ?? 0;
+              double taxValue = double.tryParse(taxExpenseF8) ?? 0;
+
+              debugPrint('Calculating Profit After Tax for $company in $yearColumn: F7 = $f7Value, Tax Expense = $taxValue');
+              double profitAfterTax = f7Value - taxValue;
+              yearData['Profit After Tax (F10)'] = profitAfterTax.toStringAsFixed(0);
+            } catch (e) {
+              // If calculation fails, leave it empty
             }
           }
         }
@@ -871,7 +870,7 @@ class FinancialDataExtractor {
           }
         }
 
-        // 3. Calculate EBIT (F3 + F4 + F5) - ONLY if not already present
+        // 3. Calculate EBIT (F3 - F4 + F5) - ONLY if not already present
         if (!yearData.containsKey('EBIT (F6)')) {
           String? grossProfit = yearData['Gross Profit (F3)'];
           String? adminExpenses = yearData['Administrative Expenses (F4)'];
@@ -882,7 +881,7 @@ class FinancialDataExtractor {
               otherIncome != null) {
             try {
               double ebit =
-                  (double.tryParse(grossProfit) ?? 0) +
+                  (double.tryParse(grossProfit) ?? 0) -
                   (double.tryParse(adminExpenses) ?? 0) +
                   (double.tryParse(otherIncome) ?? 0);
               yearData['EBIT (F6)'] = ebit.toStringAsFixed(0);
@@ -892,30 +891,87 @@ class FinancialDataExtractor {
           }
         }
 
-        // 4. Calculate Profit After Tax = EBIT - F7 - F9
-        // Formula: Profit After Tax = EBIT - Financial Expenses - Tax Expense
-        if (!yearData.containsKey('Profit After Tax (F10)')) {
+        // 4. Calculate Profit / (loss) before taxation (F6-F7) - ONLY if not already present
+        if (!yearData.containsKey('Profit / (loss) before taxation (F6-F7)')) {
           String? ebit = yearData['EBIT (F6)'];
           String? financialExpenses = yearData['Financial Expenses (F7)'];
-          String? taxExpense = yearData['Tax Expense (F9)'];
 
-          // We need at least EBIT and one of the expenses
-          if (ebit != null) {
+          if (ebit != null && financialExpenses != null) {
             try {
-              double ebitValue = double.tryParse(ebit) ?? 0;
-              double financialExpValue =
-                  double.tryParse(financialExpenses ?? '0') ?? 0;
-              double taxExpValue = double.tryParse(taxExpense ?? '0') ?? 0;
-
-              double profitAfterTax =
-                  ebitValue - financialExpValue - taxExpValue;
-
-              yearData['Profit After Tax (F10)'] = profitAfterTax
-                  .toStringAsFixed(0);
+              double pbtValue =
+                  (double.tryParse(ebit) ?? 0) -
+                  (double.tryParse(financialExpenses) ?? 0);
+              yearData['Profit / (loss) before taxation (F6-F7)'] = pbtValue.toStringAsFixed(0);
             } catch (e) {
               // If calculation fails, leave it empty
             }
           }
+        }
+
+        // 5. Calculate Profit After Tax = Profit / (loss) before taxation (F6-F7) - Tax Expense (F8)
+        if (!yearData.containsKey('Profit After Tax (F10)')) {
+          // Try CASE 1: Use calculated Profit Before Tax (F6-F7) and Tax Expense (F8)
+          String? profitBeforeTax = yearData['Profit / (loss) before taxation (F6-F7)'];
+          String? taxExpense = yearData['Tax Expense (F8)'];
+
+          if (profitBeforeTax != null && taxExpense != null) {
+            try {
+              double pbtValue = double.tryParse(profitBeforeTax) ?? 0;
+              double taxValue = double.tryParse(taxExpense) ?? 0;
+
+              debugPrint('Calculating Profit After Tax for $company in $yearColumn (CASE 1): PBT = $pbtValue, Tax Expense = $taxValue');
+              double profitAfterTax = pbtValue - taxValue;
+
+              yearData['Profit After Tax (F10)'] = profitAfterTax
+                  .toStringAsFixed(0);
+            } catch (e) {
+              // If calculation fails, try fallback
+            }
+          }
+
+          // Try CASE 2: Use Tax Expense - Current (F8(i)) if F8 is not available
+          if (!yearData.containsKey('Profit After Tax (F10)')) {
+            String? profitBeforeTaxFallback = yearData['Profit / (loss) before taxation (F6-F7)'];
+            String? currentTaxExpense = yearData['Tax Expense - Current (F8(i))'];
+
+            if (profitBeforeTaxFallback != null && currentTaxExpense != null) {
+              try {
+                double pbtValue = double.tryParse(profitBeforeTaxFallback) ?? 0;
+                double ctValue = double.tryParse(currentTaxExpense) ?? 0;
+
+                debugPrint('Calculating Profit After Tax for $company in $yearColumn (CASE 2): PBT = $pbtValue, Current Tax = $ctValue');
+                double profitAfterTax = pbtValue - ctValue;
+
+                yearData['Profit After Tax (F10)'] = profitAfterTax
+                    .toStringAsFixed(0);
+              } catch (e) {
+                // If calculation fails, try CASE 3
+              }
+            }
+          }
+
+          // Try CASE 3: Use original Profit / (loss) before taxation (F7) if available
+          if (!yearData.containsKey('Profit After Tax (F10)')) {
+            String? profitBeforeTaxF7 = yearData['Profit / (loss) before taxation (F7)'];
+            String? taxExpenseF8 = yearData['Tax Expense (F8)'];
+
+            if (profitBeforeTaxF7 != null && taxExpenseF8 != null) {
+              try {
+                double pbtValue = double.tryParse(profitBeforeTaxF7) ?? 0;
+                double taxValue = double.tryParse(taxExpenseF8) ?? 0;
+
+                debugPrint('Calculating Profit After Tax for $company in $yearColumn (CASE 3): PBT (F7) = $pbtValue, Tax Expense = $taxValue');
+                double profitAfterTax = pbtValue - taxValue;
+
+                yearData['Profit After Tax (F10)'] = profitAfterTax
+                    .toStringAsFixed(0);
+              } catch (e) {
+                // If calculation fails, try CASE 4
+              }
+            }
+          }
+
+
         }
 
         // Only add entry if we have at least some data
