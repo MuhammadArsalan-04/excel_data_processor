@@ -38,6 +38,7 @@ class FinancialDataProvider extends ChangeNotifier {
   // These must match the keys in FinancialDataExtractor.columnMappings
   static const List<String> requiredColumns = [
     'Non Current Assets (A)',
+    'Operating Fixed Assets After Depreciation (A3)',
     'Current Assets (B)',
     'Total Assets (A+B)',
     'D. Non-Current Liabilities (D1+D2+D3+D4+D5)',

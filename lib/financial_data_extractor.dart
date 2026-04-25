@@ -117,6 +117,14 @@ class FinancialDataExtractor {
       'Long term investments',
       'A5. Long term investments',
     ],
+    'Operating Fixed Assets After Depreciation (A3)': [
+      '3. Operating fixed assets after deducting accumulated depreciation',
+      '2. Operating fixed assets after deducting accumulated depreciation',
+      'Operating fixed assets after deducting accumulated depreciation',
+      'A3. Operating fixed assets',
+      'A2. Operating fixed assets',
+      'Fixed assets - net',
+    ],
   };
 
   /// Extract financial data from filtered dataset
@@ -764,6 +772,14 @@ class FinancialDataExtractor {
       '5. Long term investments',
       'Long term investments',
       'A5. Long term investments',
+    ],
+    'Operating Fixed Assets After Depreciation (A3)': [
+      '3. Operating fixed assets after deducting accumulated depreciation',
+      '2. Operating fixed assets after deducting accumulated depreciation',
+      'Operating fixed assets after deducting accumulated depreciation',
+      'A3. Operating fixed assets',
+      'A2. Operating fixed assets',
+      'Fixed assets - net',
     ],
   };
 
